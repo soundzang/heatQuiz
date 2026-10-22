@@ -1,0 +1,817 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>열돌이 키우기</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=Gowun+Dodum&display=swap">
+<style>
+/* Layout: 위에 HUD, 왼쪽은 열돌이의 방(캐릭터), 오른쪽은 문제 카드. 좁은 화면에선 위아래로 쌓임.
+   게임 화면 하나의 밝은 색감으로 고정한 디자인(라이트/다크 공통). */
+:root{
+  color-scheme: light;
+  --bg:#9FE6D6; --dot:#88D8C5; --ink:#24163F; --card:#FFFDF4; --soft:#FFF1CF; --floor:#FFD59A;
+  --cd:#FF6A3D; --cv:#2F9BFF; --rd:#FFB800; --pink:#FF5FA2; --good:#22B861; --bad:#FF4D5E; --muted:#5E5378;
+  --display:"Jua","Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --body:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);background-image:radial-gradient(var(--dot) 2.5px,transparent 3px);background-size:26px 26px;color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.5;-webkit-tap-highlight-color:transparent}
+h1,h2,h3,.disp{font-family:var(--display);font-weight:400;margin:0;text-wrap:balance}
+button{font:inherit;color:inherit}
+.screen{min-height:100%;box-sizing:border-box;padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.box{background:var(--card);border:4px solid var(--ink);border-radius:22px;box-shadow:0 6px 0 var(--ink)}
+.btn{font-family:var(--display);font-size:21px;line-height:1.2;border:4px solid var(--ink);border-radius:18px;box-shadow:0 6px 0 var(--ink);background:var(--card);color:var(--ink);padding:10px 20px;cursor:pointer;transition:transform .08s,box-shadow .08s,filter .15s;touch-action:manipulation}
+.btn:hover{filter:brightness(1.05)}
+.btn:active{transform:translateY(4px);box-shadow:0 2px 0 var(--ink)}
+.btn:focus-visible,input:focus-visible{outline:4px solid var(--pink);outline-offset:3px}
+.btn.go{background:var(--pink);color:#fff;text-shadow:0 2px 0 rgba(36,22,63,.35)}
+.btn.small{font-size:16px;padding:6px 12px;border-width:3px;box-shadow:0 4px 0 var(--ink);border-radius:14px}
+.btn.small:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+
+/* ---------- 시작 화면 ---------- */
+.logo{text-align:center;display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:8px}
+.logo .kick{font-family:var(--display);font-size:18px;background:var(--ink);color:var(--rd);padding:4px 14px;border-radius:999px;letter-spacing:.06em}
+.logo h1{font-size:clamp(46px,9vw,84px);line-height:1.05;color:var(--card);-webkit-text-stroke:4px var(--ink);paint-order:stroke fill;text-shadow:0 7px 0 var(--ink)}
+.logo h1 em{font-style:normal;color:var(--cd)}
+.startgrid{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+.startchar{background:linear-gradient(var(--soft) 72%,var(--floor) 72%);padding:18px;display:flex;flex-direction:column;align-items:center;gap:6px;overflow:hidden}
+.startchar .heroBox{max-width:300px}
+.startform{padding:22px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.startform label{font-family:var(--display);font-size:22px}
+#nameInput{font-family:var(--display);font-size:26px;border:4px solid var(--ink);border-radius:16px;padding:10px 14px;background:#fff;color:var(--ink);min-width:0}
+.startform .go{font-size:28px;padding:14px}
+.plist{display:flex;flex-wrap:wrap;gap:10px}
+.plist:empty{display:none}
+.ptitle{font-family:var(--display);font-size:18px;color:var(--muted)}
+.pchip{display:flex;align-items:center;gap:6px;padding:4px 12px 4px 4px;font-size:18px}
+.pchip svg{width:44px;height:44px}
+.pchip small{font-family:var(--body);font-size:14px;color:var(--muted)}
+.rules{margin:0;padding:12px 14px 12px 34px;background:var(--soft);border-radius:14px;border:3px dashed var(--ink);font-size:16px}
+.rules li+li{margin-top:4px}
+
+/* ---------- 말풍선 ---------- */
+.bubble{position:relative;background:#fff;border:3px solid var(--ink);border-radius:18px;padding:8px 14px;font-family:var(--display);font-size:19px;text-align:center;max-width:320px;margin:0}
+.bubble::after{content:"";position:absolute;left:50%;bottom:-12px;width:18px;height:18px;background:#fff;border-right:3px solid var(--ink);border-bottom:3px solid var(--ink);transform:translateX(-50%) rotate(45deg)}
+.bubble.pop{animation:pop .35s ease}
+@keyframes pop{0%{transform:scale(.7)}70%{transform:scale(1.08)}100%{transform:scale(1)}}
+
+/* ---------- HUD ---------- */
+.hud{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:18px;padding:10px 16px}
+.who{display:flex;align-items:center;gap:10px;min-width:0}
+.who b{font-family:var(--display);font-size:24px;font-weight:400;display:block;line-height:1.1}
+.who>div{min-width:0}
+.who small{color:var(--muted);font-size:15px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lvbadge{font-family:var(--display);font-size:22px;background:var(--rd);border:3px solid var(--ink);border-radius:14px;padding:4px 10px;white-space:nowrap;box-shadow:0 3px 0 var(--ink)}
+.xp{display:flex;flex-direction:column;gap:4px;min-width:0}
+.xplabel{display:flex;justify-content:space-between;font-family:var(--display);font-size:17px;gap:8px}
+.xplabel b{font-weight:400;color:var(--cd)}
+.pips{display:grid;grid-template-columns:repeat(10,1fr);gap:5px}
+.pip{height:20px;border:3px solid var(--ink);border-radius:8px;background:#fff}
+.pip.on{background:linear-gradient(var(--rd),var(--cd))}
+.pip.new{animation:pipin .5s ease}
+@keyframes pipin{0%{transform:scale(1.6)}100%{transform:scale(1)}}
+.hudbtns{display:flex;gap:8px}
+
+/* ---------- 플레이 영역 ---------- */
+.play{display:grid;grid-template-columns:minmax(280px,5fr) 7fr;gap:20px;align-items:start}
+.stage{background:linear-gradient(var(--soft) 66%,var(--floor) 66%);padding:16px;display:flex;flex-direction:column;align-items:center;gap:10px;overflow:hidden;position:relative}
+.heroBox{width:100%;max-width:330px;aspect-ratio:280/250;position:relative}
+.heroBox svg{width:100%;height:100%;display:block;overflow:hidden}
+.nametag{font-family:var(--display);font-size:22px;background:var(--ink);color:#fff;border-radius:999px;padding:4px 16px;text-align:center}
+.nametag span{color:var(--rd)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%}
+.stat{background:#fff;border:3px solid var(--ink);border-radius:14px;padding:6px 4px;text-align:center}
+.stat b{font-family:var(--display);font-weight:400;font-size:24px;display:block;line-height:1.1;font-variant-numeric:tabular-nums}
+.stat small{font-size:13px;color:var(--muted)}
+.catbars{display:grid;gap:6px;width:100%}
+.catbar{display:grid;grid-template-columns:44px 1fr 64px;align-items:center;gap:8px;font-size:15px}
+.catbar .nm{font-family:var(--display);font-size:17px}
+.catbar .tr{height:12px;background:#fff;border:2px solid var(--ink);border-radius:8px;overflow:hidden}
+.catbar .fl{height:100%;width:0;transition:width .4s}
+.catbar .num{text-align:right;font-variant-numeric:tabular-nums}
+
+.qcard{padding:20px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.qtop{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.chip{font-family:var(--display);font-size:17px;background:var(--soft);border:3px solid var(--ink);border-radius:999px;padding:3px 12px}
+.combo{font-family:var(--display);font-size:20px;color:var(--cd)}
+.combo.hot{animation:wiggle .5s ease}
+@keyframes wiggle{0%,100%{transform:rotate(0)}25%{transform:rotate(-6deg) scale(1.15)}75%{transform:rotate(6deg) scale(1.15)}}
+.qbody{display:flex;gap:16px;align-items:center}
+.qemoji{font-size:clamp(56px,8vw,84px);line-height:1;flex:none;width:1.4em;height:1.4em;display:grid;place-items:center;background:var(--soft);border:3px solid var(--ink);border-radius:24px}
+.qtext{font-family:var(--display);font-size:clamp(23px,2.7vw,31px);line-height:1.38;margin:0;min-width:0;word-break:keep-all}
+.qask{margin:0;color:var(--muted);font-size:16px}
+.choices{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.choice{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 8px 10px;color:#fff;position:relative}
+.choice b{font-family:var(--display);font-weight:400;font-size:clamp(28px,3.4vw,36px);text-shadow:0 3px 0 rgba(36,22,63,.4)}
+.choice small{font-family:var(--body);font-size:14px;opacity:.95}
+.choice svg{width:56px;height:22px}
+.choice.cd{background:var(--cd)} .choice.cv{background:var(--cv)} .choice.rd{background:var(--rd);color:var(--ink)}
+.choice.rd b{text-shadow:none}
+.choice .ck{position:absolute;top:6px;left:8px;font-family:var(--display);font-size:14px;opacity:.75}
+.choice:disabled{cursor:default}
+.choice.dim{filter:grayscale(.75) brightness(1.05);opacity:.55}
+.choice.right{animation:glow 1s ease infinite alternate}
+.choice.wrongpick{animation:shake .4s ease}
+.choice .mark{position:absolute;top:-14px;right:-10px;width:40px;height:40px;border-radius:50%;border:3px solid var(--ink);display:grid;place-items:center;font-family:var(--display);font-size:24px;color:#fff}
+@keyframes glow{from{box-shadow:0 6px 0 var(--ink),0 0 0 0 rgba(34,184,97,.0)}to{box-shadow:0 6px 0 var(--ink),0 0 0 8px rgba(34,184,97,.55)}}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+.feedback{border:4px solid var(--ink);border-radius:18px;padding:12px 16px;display:grid;grid-template-columns:1fr auto;gap:6px 16px;align-items:center}
+.feedback.ok{background:#D9F7E5}
+.feedback.no{background:#FFE1E4}
+.fbhead{font-family:var(--display);font-size:26px}
+.feedback.ok .fbhead{color:#12804A}
+.feedback.no .fbhead{color:#C8102E}
+.feedback p{margin:0;font-size:18px;grid-column:1}
+.feedback .go{grid-column:2;grid-row:1/span 2;font-size:24px}
+
+/* ---------- 캐릭터 움직임 ---------- */
+.bob{animation:bob 2.2s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 100%}
+@keyframes bob{0%,100%{transform:translateY(0) scale(1,1)}50%{transform:translateY(-6px) scale(.97,1.03)}}
+.happy .bob{animation:hop .6s ease 2}
+@keyframes hop{0%,100%{transform:translateY(0) scale(1)}30%{transform:translateY(0) scale(1.12,.86)}60%{transform:translateY(-30px) scale(.92,1.1)}}
+.sad .bob{animation:droop .9s ease}
+@keyframes droop{0%{transform:scale(1)}30%{transform:scale(1.05,.8) translateX(-6px)}55%{transform:scale(1.05,.8) translateX(6px)}100%{transform:scale(1)}}
+.twinkle{animation:tw 1.6s ease-in-out infinite}
+.twinkle:nth-child(2){animation-delay:.4s}.twinkle:nth-child(3){animation-delay:.8s}.twinkle:nth-child(4){animation-delay:1.2s}
+@keyframes tw{0%,100%{opacity:.25}50%{opacity:1}}
+
+/* ---------- 오버레이 ---------- */
+.overlay{position:fixed;inset:0;z-index:20;background:rgba(36,22,63,.6);display:grid;place-items:center;padding-block:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));overflow-y:auto}
+.modal{padding:22px;max-width:560px;width:100%;box-sizing:border-box;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;position:relative;animation:pop .4s ease}
+.modal h2{font-size:clamp(38px,7vw,56px);color:var(--rd);-webkit-text-stroke:3px var(--ink);paint-order:stroke fill;text-shadow:0 5px 0 var(--ink);line-height:1.1}
+.modal h3{font-size:28px}
+.modal p{margin:0;font-size:18px}
+.kicker{font-family:var(--display);font-size:18px;background:var(--ink);color:#fff;border-radius:999px;padding:2px 14px}
+.evo{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px;width:100%}
+.evo .heroBox{max-width:220px}
+.evo .old{opacity:.55;filter:grayscale(.4)}
+.evo .arrow{font-family:var(--display);font-size:34px;color:var(--pink)}
+.evo .new{animation:flash 1.1s ease}
+@keyframes flash{0%{filter:brightness(4) saturate(0);transform:scale(.4)}50%{filter:brightness(2.2);transform:scale(1.15)}100%{filter:none;transform:scale(1)}}
+.modal .btn{margin-top:6px}
+.confetti{position:fixed;inset:0;pointer-events:none;z-index:21;overflow:hidden}
+.confetti i{position:absolute;top:-20px;width:12px;height:18px;border-radius:3px;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(720deg)}}
+.dexmodal{max-width:980px}
+.dexgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;width:100%;max-height:60vh;overflow-y:auto;padding:4px}
+.dexcard{border:3px solid var(--ink);border-radius:16px;background:var(--soft);padding:8px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.dexcard .heroBox{max-width:120px}
+.dexcard b{font-family:var(--display);font-weight:400;font-size:17px}
+.dexcard small{font-size:13px;color:var(--muted)}
+.dexcard.lock .heroBox{filter:brightness(0);opacity:.22}
+.dexcard.cur{background:#FFE7F1;box-shadow:0 0 0 4px var(--pink)}
+.row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.btn.danger{background:var(--bad);color:#fff}
+
+/* ---------- 좁은 화면 ---------- */
+@media (max-width:860px){
+  .play{grid-template-columns:1fr}
+  .stage{display:grid;grid-template-columns:150px 1fr;align-items:center;justify-items:start;padding:12px;gap:8px 12px}
+  .stage .heroBox{grid-row:1/span 2;max-width:150px}
+  .stage .say{max-width:none;font-size:17px;justify-self:stretch}
+  .stage .say::after{left:-8px;top:50%;bottom:auto;transform:translateY(-50%) rotate(135deg)}
+  .stage .nametag{font-size:18px}
+  .stage .stats,.stage .catbars{grid-column:1/-1}
+  .startgrid{grid-template-columns:1fr}
+  .hud{grid-template-columns:1fr auto;gap:10px}
+  .xp{grid-column:1/-1;grid-row:2}
+}
+@media (max-width:560px){
+  .choices{grid-template-columns:1fr}
+  .choice{flex-direction:row;justify-content:center;gap:12px;padding:10px}
+  .choice small{display:none}
+  .qbody{flex-direction:column;align-items:flex-start}
+  .qemoji{font-size:50px}
+  .feedback{grid-template-columns:1fr}
+  .feedback .go{grid-column:1;grid-row:auto;width:100%}
+  .hudbtns .btn{font-size:14px;padding:5px 8px}
+  .catbars,.stage .stats{display:none}
+  .stage{grid-template-columns:120px 1fr}
+  .stage .heroBox{max-width:120px}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+
+<section id="start" class="screen">
+  <div class="wrap">
+    <div class="logo">
+      <span class="kick">전도 · 대류 · 복사</span>
+      <h1><em>열돌이</em> 키우기</h1>
+    </div>
+    <div class="startgrid">
+      <div class="box startchar">
+        <p class="bubble" id="startSay">안녕! 난 아기 불씨 열돌이야.<br>문제를 맞혀서 나를 키워 줘!</p>
+        <div class="heroBox" id="startHero"></div>
+      </div>
+      <form class="box startform" id="startForm">
+        <label for="nameInput">내 이름</label>
+        <input id="nameInput" maxlength="10" placeholder="이름을 쓰세요" autocomplete="off">
+        <button class="btn go" id="startBtn" type="submit">게임 시작!</button>
+        <span class="ptitle" id="pTitleList" hidden>이어서 하기</span>
+        <div class="plist" id="profiles"></div>
+        <ul class="rules">
+          <li>상황을 읽고 <b>전도</b>, <b>대류</b>, <b>복사</b> 중 하나를 골라요.</li>
+          <li><b>10문제</b>를 맞힐 때마다 레벨 업! 열돌이가 진화해요.</li>
+          <li>틀린 문제는 조금 뒤에 다시 나와요. 150문제를 모두 맞히면 정복!</li>
+        </ul>
+      </form>
+    </div>
+  </div>
+</section>
+
+<section id="game" class="screen" hidden>
+  <div class="wrap">
+    <header class="hud box">
+      <div class="who">
+        <span class="lvbadge" id="lvBadge">Lv.1</span>
+        <div><b id="pName"></b><small id="pTitle"></small></div>
+      </div>
+      <div class="xp">
+        <div class="xplabel"><span>다음 진화까지</span><b id="xpLeft">10문제</b></div>
+        <div class="pips" id="pips"></div>
+      </div>
+      <div class="hudbtns">
+        <button class="btn small" id="dexBtn" type="button">도감</button>
+        <button class="btn small" id="sndBtn" type="button">소리 켬</button>
+        <button class="btn small" id="menuBtn" type="button">메뉴</button>
+      </div>
+    </header>
+    <div class="play">
+      <div class="stage box">
+        <p class="bubble say" id="say">준비됐어? 가 보자!</p>
+        <div class="heroBox" id="hero"></div>
+        <div class="nametag" id="nameTag"></div>
+        <div class="stats">
+          <div class="stat"><b id="stSolved">0</b><small>맞힌 문제 / 150</small></div>
+          <div class="stat"><b id="stRate">-</b><small>정답률</small></div>
+          <div class="stat"><b id="stBest">0</b><small>최고 연속</small></div>
+        </div>
+        <div class="catbars" id="catbars"></div>
+      </div>
+      <div class="qcard box">
+        <div class="qtop">
+          <span class="chip" id="qLeft">남은 문제 150</span>
+          <span class="combo" id="combo"></span>
+        </div>
+        <div class="qbody">
+          <div class="qemoji" id="qEmoji" aria-hidden="true"></div>
+          <p class="qtext" id="qText"></p>
+        </div>
+        <p class="qask">이 상황에서 열은 어떤 방법으로 이동했을까요?</p>
+        <div class="choices" id="choices"></div>
+        <div class="feedback" id="fb" hidden>
+          <div class="fbhead" id="fbHead"></div>
+          <p id="fbText"></p>
+          <button class="btn go" id="nextBtn" type="button">다음 문제 ▶</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="overlay" id="ovl" hidden></div>
+<div class="confetti" id="confetti" aria-hidden="true"></div>
+
+<script>
+const RAW = {
+  cd: [
+    ["🥄", "뜨거운 국에 담가 둔 쇠숟가락의 손잡이까지 뜨거워졌어요.", "국에 닿은 숟가락 끝의 열이 고체인 숟가락을 따라 손잡이까지 이동했어요."],
+    ["🍳", "프라이팬을 불에 올려 두면 불이 닿지 않은 가장자리까지 뜨거워져요.", "열이 프라이팬(고체)을 따라 뜨거운 곳에서 차가운 곳으로 이동해요."],
+    ["🍳", "프라이팬 손잡이는 나무나 플라스틱으로 만들어요.", "나무와 플라스틱은 열이 잘 전도되지 않아서 손잡이가 덜 뜨거워요."],
+    ["🧊", "손바닥 위에 얼음을 올려놓았더니 얼음이 녹았어요.", "맞닿은 손의 열이 얼음으로 직접 이동했어요."],
+    ["🥶", "추운 겨울날 쇠 철봉을 맨손으로 잡으면 손이 금방 차가워져요.", "손의 열이 맞닿은 철봉으로 빠르게 이동해요. 금속은 열을 잘 전도해요."],
+    ["👕", "뜨거운 다리미로 옷을 다려 주름을 펴요.", "다리미 바닥의 열이 맞닿은 옷으로 이동해요."],
+    ["🍳", "달군 프라이팬 위에 달걀을 깨뜨리면 달걀이 익어요.", "뜨거운 팬과 맞닿은 달걀로 열이 직접 이동해요."],
+    ["☕", "따뜻한 물이 든 컵을 두 손으로 감싸면 손이 따뜻해져요.", "컵과 맞닿은 손으로 열이 이동해요."],
+    ["🧤", "핫팩을 손에 꼭 쥐고 있으면 손이 따뜻해져요.", "핫팩과 맞닿은 손으로 열이 이동해요."],
+    ["🛏️", "전기장판 위에 누우면 등이 따뜻해져요.", "장판과 맞닿은 등으로 열이 이동해요."],
+    ["🏠", "따뜻한 온돌 방바닥에 앉으면 엉덩이가 따뜻해요.", "데워진 방바닥과 맞닿은 몸으로 열이 이동해요."],
+    ["🍲", "펄펄 끓는 뚝배기를 맨손으로 잡으면 아주 뜨거워요.", "뚝배기와 맞닿은 손으로 열이 이동해요."],
+    ["🧤", "뜨거운 냄비를 옮길 때 두꺼운 주방 장갑을 껴요.", "장갑은 열이 잘 전도되지 않아 냄비의 열이 손으로 덜 이동해요."],
+    ["🥩", "달군 불판 위에 고기를 올려 구워요.", "뜨거운 불판과 맞닿은 고기로 열이 이동해요."],
+    ["🍨", "아이스크림 컵을 오래 들고 있으면 손이 차가워져요.", "손의 열이 맞닿은 차가운 컵으로 이동해서 손이 차가워져요."],
+    ["🪑", "같은 교실에 있던 금속 의자가 나무 의자보다 더 차갑게 느껴져요.", "금속은 열을 잘 전도해서 몸의 열을 빨리 빼앗아 가요."],
+    ["🥤", "차가운 캔 음료를 손에 쥐면 손이 시원해져요.", "손의 열이 맞닿은 캔으로 이동해요."],
+    ["🧈", "따뜻한 밥 위에 올린 버터가 사르르 녹아요.", "뜨거운 밥과 맞닿은 버터로 열이 이동해요."],
+    ["🤒", "열이 나는 이마에 차가운 물수건을 올려요.", "이마의 열이 맞닿은 물수건으로 이동해요."],
+    ["💇", "고데기로 머리카락을 집어 곧게 펴요.", "뜨거운 고데기 판과 맞닿은 머리카락으로 열이 이동해요."],
+    ["🥟", "갓 찐 호빵을 손으로 들었더니 손이 뜨거워요.", "호빵과 맞닿은 손으로 열이 이동해요."],
+    ["🧇", "달군 와플 기계에 반죽을 넣으면 와플이 구워져요.", "뜨거운 와플 판과 맞닿은 반죽으로 열이 이동해요."],
+    ["🍽️", "뜨거운 냄비를 식탁에 놓기 전에 냄비 받침을 깔아요.", "받침이 냄비의 열이 식탁으로 전도되는 것을 막아요."],
+    ["🐟", "붕어빵 틀이 불에 달궈지면 틀 안의 반죽이 구워져요.", "달궈진 쇠틀과 맞닿은 반죽으로 열이 이동해요."],
+    ["🦶", "겨울 아침 맨발로 차가운 타일 바닥을 밟으면 발이 시려요.", "발의 열이 맞닿은 차가운 타일로 이동해요."],
+    ["⛄", "장갑을 벗고 눈을 만졌더니 손이 닿은 곳의 눈이 녹았어요.", "손의 열이 맞닿은 눈으로 이동했어요."],
+    ["🔥", "쇠막대의 한쪽 끝을 가열하면 반대쪽 끝까지 점점 뜨거워져요.", "열이 고체인 쇠막대를 따라 가열한 곳에서 먼 곳으로 이동해요."],
+    ["🟧", "구리판에 붙인 열 변색 붙임딱지의 색이 가열한 곳부터 차례로 변해요.", "열이 구리판을 따라 가열한 곳에서 멀어지는 쪽으로 차례로 이동해요."],
+    ["🍚", "돌솥 바닥에 닿은 밥이 노릇노릇 누룽지가 돼요.", "뜨거운 돌솥 바닥과 맞닿은 밥으로 열이 이동해요."],
+    ["☕", "뜨거운 종이컵에 컵 홀더(종이 띠)를 끼워 잡아요.", "홀더가 컵의 열이 손으로 전도되는 것을 줄여 줘요."],
+    ["🏖️", "한여름 뜨거운 모래사장을 맨발로 걸으면 발바닥이 뜨거워요.", "발바닥이 뜨거운 건 뜨거운 모래와 맞닿았기 때문이에요. (모래를 데운 건 햇빛의 복사예요.)"],
+    ["🥤", "뜨거운 코코아에 꽂아 둔 금속 빨대가 뜨거워졌어요.", "코코아에 닿은 빨대 끝의 열이 빨대를 따라 위로 이동했어요."],
+    ["📕", "뜨거운 라면 냄비를 책 위에 올렸더니 책 표지가 따뜻해졌어요.", "냄비와 맞닿은 책 표지로 열이 이동했어요."],
+    ["🍱", "도시락 가방에 아이스팩을 넣어 두면 맞닿은 음식이 차갑게 유지돼요.", "음식의 열이 맞닿은 아이스팩으로 이동해요."],
+    ["🌡️", "체온계를 겨드랑이에 끼워 체온을 재요.", "몸과 맞닿은 체온계 끝으로 열이 이동해요."],
+    ["🍫", "초콜릿을 손에 오래 쥐고 있으면 녹아요.", "손의 열이 맞닿은 초콜릿으로 이동해요."],
+    ["🥩", "꽁꽁 언 고기를 금속 쟁반 위에 올려 두면 더 빨리 녹아요.", "금속 쟁반이 열을 잘 전도해서 고기에 열을 빨리 전해 줘요."],
+    ["🪟", "손바닥을 차가운 유리창에 대고 있으면 손이 차가워져요.", "손의 열이 맞닿은 유리창으로 이동해요."],
+    ["🪑", "친구가 오래 앉아 있던 의자에 앉으니 의자가 따뜻해요.", "친구 몸의 열이 맞닿은 의자로 이동해 있었어요."],
+    ["🧊", "얼음 위에 올려 둔 캔 음료가 금방 차가워져요.", "캔의 열이 맞닿은 얼음으로 이동해요."],
+    ["🥄", "금속 숟가락과 플라스틱 숟가락을 뜨거운 물에 함께 넣으면 금속 숟가락 손잡이가 먼저 뜨거워져요.", "금속이 플라스틱보다 열을 더 잘 전도해요."],
+    ["🍲", "냄비 손잡이에 실리콘 덮개를 씌워요.", "실리콘은 열이 잘 전도되지 않아 손을 보호해 줘요."],
+    ["🍧", "빙수 그릇을 계속 잡고 있으면 손이 시려요.", "손의 열이 맞닿은 차가운 그릇으로 이동해요."],
+    ["🤝", "꽁꽁 언 손으로 친구의 따뜻한 손을 잡으면 내 손이 따뜻해져요.", "친구 손의 열이 맞닿은 내 손으로 이동해요."],
+    ["🔪", "따뜻하게 데운 칼로 차가운 버터를 자르면 잘 잘려요.", "칼과 맞닿은 버터로 열이 이동해 버터가 녹아요."],
+    ["🥔", "은박지에 싸서 구운 감자를 맨손으로 들면 뜨거워요.", "감자와 은박지에 맞닿은 손으로 열이 이동해요."],
+    ["💧", "따뜻한 물주머니를 이불 속 발밑에 두면 발이 따뜻해요.", "물주머니와 맞닿은 발로 열이 이동해요."],
+    ["♨️", "찜질팩을 어깨에 올려 두면 어깨가 따뜻해져요.", "찜질팩과 맞닿은 어깨로 열이 이동해요."],
+    ["🧊", "얼음물에 손을 넣으면 손이 금방 차가워져요.", "손의 열이 맞닿은 차가운 물로 이동해요."],
+    ["🍜", "뜨거운 국그릇을 올려 둔 쟁반이 따뜻해졌어요.", "국그릇과 맞닿은 쟁반으로 열이 이동했어요."]
+  ],
+  cv: [
+    ["❄️", "에어컨은 방의 위쪽에 설치해요.", "차가운 공기는 아래로 내려가고 따뜻한 공기는 위로 올라가며 방 전체가 시원해져요."],
+    ["🔥", "난방기는 방의 아래쪽에 설치해요.", "데워진 공기가 위로 올라가고 차가운 공기가 내려오며 방 전체가 따뜻해져요."],
+    ["🫖", "주전자 바닥만 가열해도 물 전체가 골고루 뜨거워져요.", "데워진 물은 위로, 차가운 물은 아래로 움직이며 열을 옮겨요."],
+    ["🍲", "냄비에 물을 끓이면 물이 위아래로 빙글빙글 돌아요.", "데워진 물이 올라가고 차가운 물이 내려오며 순환해요."],
+    ["🎈", "열기구 속 공기를 데우면 열기구가 하늘로 떠올라요.", "데워진 공기는 위로 올라가요. 대류가 일어나는 원리와 같아요."],
+    ["🛏️", "겨울에 이층 침대 위층이 아래층보다 더 따뜻해요.", "방 안의 데워진 공기가 위로 올라가 위쪽에 모여요."],
+    ["🛁", "뜨거운 물을 받은 욕조는 위쪽 물만 뜨거워서 손으로 저어 줘야 해요.", "따뜻한 물은 위로 올라가 위쪽에 모여요."],
+    ["🧊", "냉장고 냉동실이 위쪽에 있으면 아래 냉장실까지 시원해져요.", "냉동실의 차가운 공기가 아래로 내려가요."],
+    ["🕯️", "촛불 바로 위에 손을 대면 옆에 댔을 때보다 훨씬 뜨거워요.", "촛불에 데워진 공기가 위로 올라가기 때문이에요."],
+    ["🌫️", "향을 피우면 연기가 위로 피어올라요.", "데워진 공기가 위로 올라가며 연기를 함께 옮겨요."],
+    ["♨️", "창문 아래 라디에이터를 켜 두면 방 안 공기가 돌며 방 전체가 따뜻해져요.", "데워진 공기가 올라가고 차가운 공기가 내려오며 순환해요."],
+    ["🌬️", "에어컨을 켜면 발밑부터 먼저 시원해져요.", "차가운 공기가 아래로 내려오기 때문이에요."],
+    ["🧪", "물이 든 비커 바닥에 잉크를 떨어뜨리고 가열하면 잉크가 위로 올라갔다가 옆으로 퍼져 내려와요.", "데워진 물이 위로 올라가고 식은 물이 내려오는 흐름을 잉크가 보여 줘요."],
+    ["🐍", "촛불 위에 매단 종이 뱀이 빙글빙글 돌아요.", "데워진 공기가 위로 올라가며 종이 뱀을 돌려요."],
+    ["🍦", "위가 뚫린 아이스크림 냉동고는 뚜껑이 없어도 찬 공기가 잘 빠져나가지 않아요.", "차가운 공기는 아래로 내려가 머물러요."],
+    ["🚪", "냉장고 문을 열면 발 쪽이 시원해져요.", "냉장고 안의 차가운 공기가 아래로 흘러나와요."],
+    ["🥤", "음료 위에 띄운 얼음만으로 음료 전체가 시원해져요.", "얼음 근처의 차가워진 음료가 아래로 내려가고 따뜻한 음료가 올라와요."],
+    ["🧖", "사우나에서는 위쪽 자리가 아래쪽 자리보다 더 뜨거워요.", "뜨거운 공기가 위로 올라가 위쪽에 모여요."],
+    ["🌊", "여름 바다에서 물 위쪽은 따뜻하고 깊은 곳은 차가워요.", "따뜻한 물은 위로 올라가고 차가운 물은 아래로 가라앉아요."],
+    ["💨", "에어컨 바람 방향을 위쪽으로 하면 방이 골고루 시원해져요.", "위로 보낸 찬 공기가 아래로 내려오며 방 전체를 돌아요."],
+    ["🔥", "온풍기 바람을 아래쪽으로 향하게 하면 방이 골고루 따뜻해져요.", "아래로 보낸 따뜻한 공기가 위로 올라가며 방 전체를 돌아요."],
+    ["✨", "모닥불 위로 불티가 날아올라요.", "불에 데워진 공기가 위로 올라가며 불티를 함께 옮겨요."],
+    ["🏮", "풍등 속 불을 켜면 풍등이 하늘로 날아올라요.", "풍등 안의 공기가 데워져 위로 올라가요."],
+    ["🪟", "창문 위쪽과 아래쪽을 함께 열면 공기가 잘 순환해요.", "따뜻한 공기는 위로 나가고 차가운 공기는 아래로 들어와요."],
+    ["🍲", "미역국을 데우면 냄비 속 미역이 위아래로 움직여요.", "데워진 국물이 올라가고 식은 국물이 내려오며 미역을 움직여요."],
+    ["🌾", "보리차를 끓이면 보리 알갱이가 오르락내리락해요.", "물이 위아래로 순환하며 알갱이를 함께 움직여요."],
+    ["🥶", "겨울에 큰 창문 앞에 서 있으면 발밑으로 찬 바람이 느껴져요.", "창문 근처에서 차가워진 공기가 아래로 내려와요."],
+    ["🚒", "불이 나면 몸을 낮추고 대피해요.", "뜨거운 연기와 공기는 위로 올라가기 때문이에요."],
+    ["🚨", "화재 감지기는 천장에 달아요.", "뜨거운 공기와 연기는 위로 올라가요."],
+    ["🏭", "굴뚝으로 연기가 위로 빠져나가요.", "데워진 공기가 위로 올라가며 연기를 함께 옮겨요."],
+    ["🌱", "비닐하우스 환기창은 지붕 꼭대기에 달아요.", "데워진 공기가 위로 올라가 꼭대기로 빠져나가요."],
+    ["🍳", "가스레인지 위쪽에 주방 후드를 달아요.", "요리할 때 데워진 공기와 연기는 위로 올라가요."],
+    ["🚿", "욕실 환풍기는 천장에 달아요.", "따뜻하고 습한 공기가 위로 올라가요."],
+    ["🧪", "차가운 물이 든 수조에 따뜻한 색깔 물을 넣으면 색깔 물이 위로 올라가요.", "따뜻한 물은 위로 올라가요."],
+    ["🧪", "따뜻한 물이 든 수조에 차가운 색깔 물을 넣으면 색깔 물이 아래로 가라앉아요.", "차가운 물은 아래로 내려가요."],
+    ["🧊", "아이스박스에서 얼음을 맨 위에 올려 두면 아래까지 잘 시원해져요.", "얼음 근처의 차가운 공기가 아래로 내려가요."],
+    ["🦅", "독수리가 날갯짓을 하지 않고도 빙글빙글 돌며 높이 올라가요.", "땅 위에서 데워진 공기가 위로 올라가는 흐름(상승 기류)을 타요."],
+    ["🍟", "에어프라이어는 뜨거운 공기를 빙글빙글 돌려 음식을 익혀요.", "뜨거운 공기가 움직이며 열을 옮겨요."],
+    ["🧪", "물이 든 시험관의 위쪽을 가열하면 아래쪽 물은 잘 데워지지 않아요.", "데워진 물은 위에 머물러 아래로 내려가지 않아요. 그래서 대류가 잘 일어나지 않아요."],
+    ["🥟", "찜통에서 뜨거운 수증기가 위로 올라가 만두를 익혀요.", "뜨거운 수증기가 위로 움직이며 열을 옮겨요."],
+    ["🏠", "거실 한쪽에 난로 하나만 켜도 거실 전체가 따뜻해져요.", "데워진 공기가 올라가고 차가운 공기가 내려오며 거실 전체를 돌아요."],
+    ["🏫", "난방을 켠 교실에서 천장 근처가 바닥보다 더 따뜻해요.", "데워진 공기가 위로 올라가 천장 근처에 모여요."],
+    ["🍜", "라면을 끓일 때 냄비 속 면이 빙글빙글 돌아요.", "데워진 물이 올라가고 식은 물이 내려오며 면을 움직여요."],
+    ["🎐", "켜 둔 난로 위쪽에 매단 모빌이 저절로 빙글빙글 돌아요.", "난로에 데워진 공기가 위로 올라가며 모빌을 돌려요."],
+    ["⛺", "텐트 꼭대기에 환기구를 만들어요.", "따뜻해진 공기가 위로 올라가 꼭대기로 빠져나가요."],
+    ["🚗", "겨울에 자동차 히터 바람을 발 쪽으로 틀면 차 안이 골고루 따뜻해져요.", "아래쪽의 따뜻한 공기가 위로 올라가며 차 안을 돌아요."],
+    ["☕", "전기 주전자는 바닥만 데우는데도 물 전체가 끓어요.", "바닥에서 데워진 물이 위로 올라가며 순환해요."],
+    ["🏡", "겨울철 집에서 2층이 1층보다 따뜻해요.", "데워진 공기가 계단을 따라 위층으로 올라가요."],
+    ["🛍️", "헤어드라이어로 데운 공기를 비닐봉지에 담으면 봉지가 위로 떠올라요.", "데워진 공기는 위로 올라가요."],
+    ["🥬", "뚜껑이 위에 있는 김치냉장고는 문을 열어도 찬 공기가 덜 빠져나가요.", "차가운 공기는 아래로 내려가 머물러요."]
+  ],
+  rd: [
+    ["☀️", "햇볕을 쬐면 몸이 따뜻해져요.", "태양의 열이 다른 물질을 거치지 않고 직접 전달돼요."],
+    ["🔥", "모닥불 앞에 앉아 있으면 얼굴이 뜨거워져요.", "불에서 나온 열이 앞쪽으로 직접 전달돼요."],
+    ["🔌", "전기난로 앞에 서면 난로를 향한 몸 앞쪽만 따뜻해요.", "난로의 열이 곧게 직접 전달돼서 난로를 향한 쪽만 따뜻해요."],
+    ["👕", "여름에 검은 옷을 입으면 흰 옷보다 더 더워요.", "검은색은 햇빛의 열을 더 많이 흡수해요."],
+    ["🪟", "햇빛이 드는 창가 바닥이 따뜻해요.", "햇빛의 열이 직접 바닥에 전달돼요."],
+    ["❄️", "햇빛이 드는 양지의 눈이 그늘의 눈보다 빨리 녹아요.", "햇빛의 열이 직접 눈에 전달돼요."],
+    ["🚗", "한여름 햇볕 아래 세워 둔 자동차 안이 무척 뜨거워져요.", "유리창을 통과한 햇빛의 열이 차 안을 데워요."],
+    ["🚿", "지붕 위 태양열 온수기로 물을 데워요.", "햇빛의 열을 직접 받아 물을 데워요."],
+    ["🔍", "돋보기로 햇빛을 모으면 종이가 타요.", "햇빛의 열을 한곳에 모아 직접 전달해요. (꼭 선생님과 함께 해요.)"],
+    ["⛱️", "여름에 양산을 쓰면 덜 더워요.", "양산이 햇빛의 열이 직접 닿는 것을 막아 줘요."],
+    ["🌳", "땡볕에 있다가 나무 그늘에 들어가면 시원해져요.", "그늘에서는 햇빛의 열이 직접 닿지 않아요."],
+    ["🚘", "여름에 자동차 앞 유리에 햇빛 가리개를 펼쳐 둬요.", "햇빛의 열이 차 안으로 들어오는 것을 막아요."],
+    ["🍗", "식당에서 빨간 보온 램프 아래 음식이 따뜻하게 유지돼요.", "램프의 열이 음식에 직접 전달돼요."],
+    ["🐣", "병아리 상자 위에 보온 전구를 켜 줘요.", "전구의 열이 병아리에게 직접 전달돼요."],
+    ["🔥", "숯불 옆에 손을 가까이 대면 따뜻해요.", "숯불의 열이 옆으로 직접 전달돼요. (숯불 바로 위는 대류로 더 뜨거워요.)"],
+    ["🍳", "반사판을 둥글게 모은 태양열 조리기로 음식을 익혀요.", "햇빛의 열을 모아 음식에 직접 전달해요."],
+    ["🛌", "햇볕 드는 베란다에 널어 둔 이불이 따뜻해졌어요.", "햇빛의 열이 이불에 직접 전달됐어요."],
+    ["🌍", "지구는 태양 덕분에 따뜻해요.", "태양과 지구 사이 우주에는 공기가 없어요. 태양의 열은 복사로 지구까지 와요."],
+    ["🌇", "여름에 커튼을 치면 방이 덜 더워져요.", "커튼이 햇빛의 열이 들어오는 것을 막아요."],
+    ["🏢", "지붕을 흰색으로 칠하면 여름에 건물이 덜 더워요.", "흰색은 햇빛을 많이 반사해서 열을 덜 흡수해요."],
+    ["🍫", "햇볕 아래 둔 초콜릿이 녹았어요.", "햇빛의 열이 초콜릿에 직접 전달됐어요."],
+    ["🐈", "고양이가 햇볕 드는 곳에 누워 낮잠을 자요.", "햇빛의 열을 직접 받아 몸이 따뜻해져요."],
+    ["🌱", "햇빛이 드는 비닐하우스 안은 겨울에도 따뜻해요.", "비닐을 통과한 햇빛의 열이 안을 데워요."],
+    ["🛝", "햇볕을 받은 미끄럼틀 표면이 뜨겁게 달궈졌어요.", "미끄럼틀을 데운 건 햇빛의 복사예요. (만졌을 때 손이 뜨거운 건 전도예요.)"],
+    ["🛣️", "여름 한낮 아스팔트 도로가 뜨겁게 달궈져요.", "검은 아스팔트가 햇빛의 열을 많이 흡수해요."],
+    ["🏠", "벽난로 앞에 앉으면 몸 앞쪽이 따뜻해요.", "벽난로의 열이 앞쪽으로 직접 전달돼요."],
+    ["🕯️", "촛불 옆에 손을 가까이 대면 따뜻해요.", "촛불의 열이 옆으로 직접 전달돼요. (촛불 위쪽은 대류로 더 뜨거워요.)"],
+    ["💡", "켜진 백열전구 가까이 손을 대면 따뜻해요.", "전구의 열이 손에 직접 전달돼요."],
+    ["🪟", "겨울에 햇살이 드는 창가에 앉으면 유리창 너머로도 따뜻해요.", "유리를 통과한 햇빛의 열이 몸에 직접 전달돼요."],
+    ["🚀", "우주에서 햇빛을 받는 쪽 우주선 표면은 매우 뜨거워져요.", "공기가 없는 우주에서도 열은 복사로 전달돼요."],
+    ["🌶️", "고추를 햇볕에 널어 말려요.", "햇빛의 열이 고추에 직접 전달돼 물기가 마르게 해요."],
+    ["💧", "햇볕 아래 둔 물통의 물이 미지근해졌어요.", "햇빛의 열이 물통에 직접 전달됐어요."],
+    ["🍦", "아이스크림이 그늘보다 햇볕 아래에서 더 빨리 녹아요.", "햇볕 아래에서는 햇빛의 열이 직접 전달돼요."],
+    ["🪟", "여름에 창문에 햇빛을 반사하는 필름을 붙여요.", "햇빛의 열을 반사해 방으로 덜 들어오게 해요."],
+    ["🏡", "겨울에 남향집이 북향집보다 따뜻해요.", "남쪽 창으로 햇빛이 많이 들어와 열을 직접 전달해요."],
+    ["⬛", "눈 위에 검은 천을 덮어 두면 눈이 더 빨리 녹아요.", "검은색이 햇빛의 열을 더 많이 흡수해요."],
+    ["🧑‍🚒", "소방관의 방화복은 은색으로 반짝여요.", "불에서 곧바로 전달되는 열을 반사해 막아 줘요."],
+    ["☁️", "구름 낀 날보다 맑은 날 햇볕이 더 따뜻하게 느껴져요.", "맑은 날에는 햇빛의 열이 구름에 막히지 않고 직접 전달돼요."],
+    ["🦎", "도마뱀이 아침에 햇볕을 쬐며 몸을 데워요.", "햇빛의 열을 직접 받아 몸이 따뜻해져요."],
+    ["🌕", "공기가 없는 달에서도 햇빛을 받는 쪽은 아주 뜨거워요.", "공기가 없어도 열은 복사로 전달돼요."],
+    ["🪞", "거울로 햇빛을 반사해 손등에 비추면 손등이 따뜻해져요.", "반사된 햇빛의 열이 손등에 직접 전달돼요."],
+    ["🏯", "한옥의 처마가 여름 햇빛을 가려 방 안이 덜 더워요.", "처마가 햇빛의 열이 방으로 직접 들어오는 것을 막아요."],
+    ["👒", "여름에 밀짚모자를 쓰면 머리가 덜 뜨거워요.", "모자가 햇빛의 열이 머리에 직접 닿는 것을 막아요."],
+    ["🔥", "캠핑장 난로 쪽으로 손바닥을 펴 보이면 손바닥이 따뜻해져요.", "난로의 열이 손바닥에 직접 전달돼요."],
+    ["🦶", "적외선 전기히터를 켜면 바로 앞에 있는 발이 금방 따뜻해져요.", "히터의 열이 발에 직접 전달돼요."],
+    ["🏖️", "해수욕장 파라솔 아래에 들어가면 덜 더워요.", "파라솔이 햇빛의 열을 가려 줘요."],
+    ["🚙", "햇볕 아래 세워 둔 검은 자동차가 흰 자동차보다 더 뜨거워져요.", "검은색이 햇빛의 열을 더 많이 흡수해요."],
+    ["🖐️", "한 손은 햇빛에, 한 손은 그늘에 두면 햇빛 속 손이 더 따뜻해요.", "햇빛을 받은 손에만 열이 직접 전달돼요."],
+    ["🧱", "햇빛이 비치는 쪽 벽돌담이 그늘진 담보다 따뜻해요.", "햇빛의 열이 벽돌에 직접 전달돼요."],
+    ["🛰️", "인공위성은 햇빛의 열을 막으려고 금색이나 은색 덮개를 둘러요.", "반짝이는 덮개가 햇빛의 열을 반사해요."]
+  ]
+};
+
+</script>
+<script>
+(function(){
+"use strict";
+const CAT = {cd:"전도", cv:"대류", rd:"복사"};
+const ORDER = ["cd","cv","rd"];
+const HINT = {cd:"맞닿은 물체를 따라", cv:"물·공기가 움직이며", rd:"곧바로 전달돼요"};
+const ICON = {
+  cd:'<svg viewBox="0 0 60 24" aria-hidden="true"><circle cx="8" cy="12" r="7" fill="currentColor"/><circle cx="30" cy="12" r="7" fill="currentColor" opacity=".65"/><circle cx="52" cy="12" r="7" fill="currentColor" opacity=".35"/></svg>',
+  cv:'<svg viewBox="0 0 60 28" aria-hidden="true"><path d="M16 22 C4 22 4 6 16 6 H44 C56 6 56 22 44 22 H26" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/><path d="M30 16 L24 22 L30 28" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" transform="translate(0,-3)"/></svg>',
+  rd:'<svg viewBox="0 0 60 24" aria-hidden="true"><path d="M2 6 q7 -6 14 0 t14 0 t14 0 t14 0 M2 18 q7 -6 14 0 t14 0 t14 0 t14 0" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round"/></svg>'
+};
+const CAT_COLOR = {cd:"var(--cd)", cv:"var(--cv)", rd:"var(--rd)"};
+
+const QS = [], QMAP = {};
+ORDER.forEach(c => RAW[c].forEach((r,i) => { const q = {id:c+(i+1), c, e:r[0], t:r[1], x:r[2]}; QS.push(q); QMAP[q.id] = q; }));
+const TOTAL = QS.length, PER_LV = 10, MAX_LV = 15;
+
+const LV = [
+  {n:"불씨 꼬물이",     d:"아직 아기 불씨. 재채기 한 번에 꺼질 수도 있어요…"},
+  {n:"성냥 불꽃",       d:"치익! 드디어 제대로 불이 붙었다!"},
+  {n:"촛불 꼬마",       d:"팔이 생겼다! 이제 박수도 칠 수 있어요."},
+  {n:"모닥불 소년",     d:"눈썹이 자랐다. 이제 진지한 표정도 가능!"},
+  {n:"군고구마 장인",   d:"고구마를 굽기 시작했다. 냄새가 교실까지 솔솔~"},
+  {n:"찜질방 사장님",   d:"양머리 수건 장착! 맥반석 계란 하나 드실래요?"},
+  {n:"난로 대장",       d:"머리띠 질끈! 겨울 교실 난방은 내가 책임진다."},
+  {n:"용광로 기사",     d:"쇠도 녹이는 뜨거운 기사. 투구가 좀 뜨겁긴 해요."},
+  {n:"화산 장군",       d:"망토와 콧수염 획득! 쿠르릉, 위엄이 폭발한다!"},
+  {n:"열기구 선장",     d:"데워진 공기는 위로! 대류의 힘으로 출항~"},
+  {n:"불사조 날개",     d:"날개가 돋았다! 근데 아직 나는 법은 연습 중."},
+  {n:"태양 왕자",       d:"왕관과 선글라스. 자기가 너무 눈부셔서 씀."},
+  {n:"태양 대왕",       d:"사방으로 빛을 뿜뿜! 복사열 무한 방출 중."},
+  {n:"은하 열기 황제",  d:"별들이 주위를 빙글빙글. 우주 팬클럽 결성!"},
+  {n:"우주 최강 열의 신", d:"파란 불꽃 각성! 파란 불꽃은 빨간 불꽃보다 더 뜨겁대요!"}
+];
+const SAY_OK = ["후끈후끈! 정답이야!","오예~ 내 몸이 1도 올라갔어!","정답! 열정 만렙!","찌릿! 실력이 전기장판급!","역시 내 친구! 따끈따끈해~","맞았다! 불꽃 댄스 타임!","정답이야! 고구마 하나 줄게 🍠"];
+const SAY_NO = ["앗 차가워… 나 꺼질 것 같아","피식… 연기만 났다","괜찮아, 불씨는 아직 살아 있어!","으슬으슬~ 다시 데워 보자!","에취! 다음엔 맞힐 수 있어!"];
+const SAY_IDLE = ["이건 무슨 열의 이동일까?","천천히 읽어 봐. 넌 할 수 있어!","힌트: 맞닿았니? 움직였니? 곧바로 왔니?","나를 키워 줘~ 배고파(열이)!"];
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[ch]));
+const pick = a => a[Math.floor(Math.random()*a.length)];
+const shuffle = a => { a = a.slice(); for (let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; };
+const lvOf = n => Math.min(MAX_LV, 1 + Math.floor(n / PER_LV));
+const reduced = (() => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch(e){ return false; } })();
+
+/* ---------- 저장 ---------- */
+const KEY = "heatHero.v1";
+let DB = {profiles:{}, last:"", sound:true};
+try { const s = JSON.parse(localStorage.getItem(KEY) || "null"); if (s && s.profiles) DB = {profiles:s.profiles, last:s.last||"", sound:s.sound!==false}; } catch(e) {}
+function save(){ try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch(e) {} }
+function fresh(){ return {solved:[], queue:shuffle(QS.map(q=>q.id)), tries:0, wrong:0, combo:0, best:0, cat:{cd:[0,0],cv:[0,0],rd:[0,0]}}; }
+function fix(p){
+  const f = fresh();
+  p = Object.assign(f, p || {});
+  p.solved = (p.solved||[]).filter(id => QMAP[id]);
+  const sol = new Set(p.solved);
+  p.queue = (p.queue||[]).filter(id => QMAP[id] && !sol.has(id));
+  const inq = new Set(p.queue);
+  shuffle(QS).forEach(q => { if (!sol.has(q.id) && !inq.has(q.id)) p.queue.push(q.id); });
+  ORDER.forEach(c => { if (!Array.isArray(p.cat[c])) p.cat[c] = [0,0]; });
+  return p;
+}
+
+/* ---------- 소리 ---------- */
+let AC = null;
+function beep(f, d, type, vol, when){
+  if (!DB.sound) return;
+  try {
+    AC = AC || new (window.AudioContext || window.webkitAudioContext)();
+    if (AC.state === "suspended") AC.resume();
+    const t0 = AC.currentTime + (when || 0);
+    const o = AC.createOscillator(), g = AC.createGain();
+    o.type = type || "sine"; o.frequency.value = f;
+    g.gain.setValueAtTime(vol || .15, t0); g.gain.exponentialRampToValueAtTime(.001, t0 + d);
+    o.connect(g); g.connect(AC.destination); o.start(t0); o.stop(t0 + d + .03);
+  } catch(e) {}
+}
+const SND = {
+  ok(){ beep(660,.12,"sine",.18); beep(990,.2,"sine",.18,.09); },
+  bad(){ beep(240,.18,"square",.07); beep(180,.3,"square",.07,.15); },
+  click(){ beep(520,.05,"triangle",.1); },
+  combo(){ [784,988,1175].forEach((f,i)=>beep(f,.12,"triangle",.14,i*.07)); },
+  up(){ [523,659,784,1047,1319].forEach((f,i)=>beep(f,.22,"triangle",.18,i*.11)); beep(1568,.5,"sine",.15,.6); }
+};
+
+/* ---------- 캐릭터 (열돌이) ---------- */
+let UID = 0;
+const INK = "#24163F";
+const FLAME = "M100 28 C122 66 162 92 162 140 C162 182 136 206 100 206 C64 206 38 182 38 140 C38 112 56 96 68 72 C74 92 82 100 90 102 C86 80 90 54 100 28 Z";
+const CORE  = "M100 92 C116 116 140 130 140 160 C140 186 122 198 100 198 C78 198 60 186 60 160 C60 138 76 128 84 110 C88 124 94 128 98 128 C96 116 96 104 100 92 Z";
+function tier(lv){
+  return lv>=15 ? ["#2F5BFF","#5FB2FF","#E2F5FF"]
+       : lv>=13 ? ["#FF7A00","#FFD23F","#FFFFFF"]
+       : lv>=10 ? ["#F48C06","#FFC93C","#FFF6CC"]
+       : lv>=7  ? ["#F3722C","#FFA62B","#FFEFA0"]
+       : lv>=4  ? ["#E8432B","#FF8A2A","#FFE08A"]
+       :          ["#D62839","#FF6B35","#FFC857"];
+}
+function star(x,y,r,cls){
+  const p = []; for (let i=0;i<8;i++){ const a = Math.PI/4*i - Math.PI/2, rr = i%2 ? r*.42 : r; p.push((x+Math.cos(a)*rr).toFixed(1)+","+(y+Math.sin(a)*rr).toFixed(1)); }
+  return `<polygon class="${cls||""}" points="${p.join(" ")}" fill="#FFE45C" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round"/>`;
+}
+function heroSVG(lv, mood){
+  lv = Math.max(1, Math.min(MAX_LV, lv)); mood = mood || "idle";
+  const id = "hg" + (++UID), [c1,c2,c3] = tier(lv);
+  const s = (0.52 + (lv-1)*0.034).toFixed(3);
+  const happy = mood === "happy", sad = mood === "sad";
+  let back = "", arms = "", face = "", front = "";
+
+  if (lv >= 13) {
+    let r = ""; for (let i=0;i<12;i++) r += `<polygon points="100,6 108,32 92,32" transform="rotate(${i*30} 100 128)"/>`;
+    back += `<g fill="#FFE45C" stroke="${INK}" stroke-width="2" opacity=".85">${r}${reduced?"":'<animateTransform attributeName="transform" type="rotate" from="0 100 128" to="360 100 128" dur="24s" repeatCount="indefinite"/>'}</g>`;
+  }
+  if (lv >= 14) back += `<g>${star(-14,70,13,"twinkle")}${star(214,62,11,"twinkle")}${star(-8,188,10,"twinkle")}${star(212,180,13,"twinkle")}</g>`;
+  if (lv >= 11) {
+    const w = `<path d="M54 140 C20 92 -18 96 -14 120 C-4 118 4 122 6 130 C-10 134 -10 150 2 156 C10 150 20 152 24 160 C34 160 44 158 54 156 Z" fill="#FFF3B0" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/><path d="M6 130 C20 134 34 140 46 146 M2 156 C16 154 30 152 44 152" stroke="${INK}" stroke-width="3" fill="none" stroke-linecap="round"/>`;
+    back += `<g>${w}</g><g transform="translate(200 0) scale(-1 1)">${w}</g>`;
+  }
+  if (lv >= 9) back += `<path d="M66 112 L134 112 L178 202 Q100 216 22 202 Z" fill="#C1121F" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/>`;
+
+  if (lv >= 3) {
+    const ly = happy ? 118 : sad ? 182 : 148, ry = ly;
+    arms = `<g stroke="${INK}" stroke-width="7" stroke-linecap="round" fill="none"><path d="M52 170 L20 ${ly}"/><path d="M148 170 L180 ${ry}"/></g>`
+         + `<circle cx="20" cy="${ly}" r="8" fill="${c2}" stroke="${INK}" stroke-width="4"/><circle cx="180" cy="${ry}" r="8" fill="${c2}" stroke="${INK}" stroke-width="4"/>`;
+    if (lv === 5) arms += `<g transform="translate(186 ${ry-12}) rotate(-25)"><ellipse cx="0" cy="0" rx="17" ry="10" fill="#7B2D8E" stroke="${INK}" stroke-width="3"/><ellipse cx="14" cy="0" rx="4" ry="7" fill="#FFD166" stroke="${INK}" stroke-width="2"/><path d="M-6 -16 q4 -6 0 -12 M4 -16 q4 -6 0 -12" stroke="${INK}" stroke-width="2.5" fill="none" stroke-linecap="round"/></g>`;
+  }
+
+  const body = `<path d="${FLAME}" fill="url(#${id})" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/><path d="${CORE}" fill="${c3}"/>`;
+
+  // 눈
+  if (lv >= 12) {
+    face += `<rect x="68" y="138" width="28" height="18" rx="6" fill="${INK}"/><rect x="104" y="138" width="28" height="18" rx="6" fill="${INK}"/><path d="M96 144 H104" stroke="${INK}" stroke-width="4"/><path d="M74 143 l8 0 M110 143 l8 0" stroke="#fff" stroke-width="3" stroke-linecap="round"/>`;
+  } else if (sad) {
+    face += `<path d="M76 150 q8 -7 16 0 M108 150 q8 -7 16 0" stroke="${INK}" stroke-width="4.5" fill="none" stroke-linecap="round"/><path d="M128 152 q4 8 0 12 q-4 -4 0 -12" fill="#5FB2FF" stroke="${INK}" stroke-width="2"/>`;
+  } else if (happy) {
+    face += `<path d="M76 150 q8 -10 16 0 M108 150 q8 -10 16 0" stroke="${INK}" stroke-width="4.5" fill="none" stroke-linecap="round"/>`;
+  } else if (lv === 1) {
+    face += `<path d="M76 146 q8 6 16 0 M108 146 q8 6 16 0" stroke="${INK}" stroke-width="4.5" fill="none" stroke-linecap="round"/>`;
+  } else {
+    face += `<ellipse cx="84" cy="147" rx="6.5" ry="8.5" fill="${INK}"/><ellipse cx="116" cy="147" rx="6.5" ry="8.5" fill="${INK}"/><circle cx="86.5" cy="143.5" r="2.5" fill="#fff"/><circle cx="118.5" cy="143.5" r="2.5" fill="#fff"/>`;
+  }
+  if (lv >= 4 && lv < 12) face += `<path d="M73 133 L93 137 M127 133 L107 137" stroke="${INK}" stroke-width="5" stroke-linecap="round"/>`;
+  if (lv >= 3) face += `<ellipse cx="70" cy="163" rx="8" ry="4.5" fill="#FF5FA2" opacity=".55"/><ellipse cx="130" cy="163" rx="8" ry="4.5" fill="#FF5FA2" opacity=".55"/>`;
+  const my = lv >= 9 ? 7 : 0;
+  if (lv >= 9) face += `<path d="M100 162 C92 155 78 156 74 166 C84 163 92 166 100 164 C108 166 116 163 126 166 C122 156 108 155 100 162 Z" fill="#5A2E0E" stroke="${INK}" stroke-width="2"/>`;
+  if (happy) face += `<path d="M88 ${162+my} Q100 ${184+my} 112 ${162+my} Z" fill="${INK}"/><path d="M94 ${170+my} Q100 ${178+my} 106 ${170+my}" fill="#FF5FA2"/>`;
+  else if (sad) face += `<path d="M90 ${174+my} Q100 ${164+my} 110 ${174+my}" stroke="${INK}" stroke-width="4.5" fill="none" stroke-linecap="round"/>`;
+  else face += `<path d="M90 ${164+my} Q100 ${175+my} 110 ${164+my}" stroke="${INK}" stroke-width="4.5" fill="none" stroke-linecap="round"/>`;
+
+  // 머리 장식
+  if (lv === 6) front += `<path d="M58 104 Q100 116 142 104" stroke="#FFB3C7" stroke-width="12" fill="none" stroke-linecap="round"/><g fill="#FFB3C7" stroke="${INK}" stroke-width="3.5"><ellipse cx="72" cy="96" rx="18" ry="13"/><ellipse cx="128" cy="96" rx="18" ry="13"/></g><path d="M72 96 m-8 0 a8 7 0 1 0 8 -7 a4 4 0 1 0 3 6 M128 96 m-8 0 a8 7 0 1 0 8 -7 a4 4 0 1 0 3 6" stroke="${INK}" stroke-width="2.5" fill="none"/>`;
+  if (lv === 7) front += `<rect x="46" y="110" width="108" height="16" rx="7" fill="#E63946" stroke="${INK}" stroke-width="3.5"/><text x="100" y="123" text-anchor="middle" font-family="Jua,sans-serif" font-size="13" fill="#fff">열정</text><path d="M152 116 l18 -10 l-2 14 Z M152 120 l16 10 l-12 6 Z" fill="#E63946" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>`;
+  if (lv === 8) front += `<path d="M56 122 C54 70 146 70 144 122 Z" fill="#A9B4C2" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/><rect x="66" y="104" width="68" height="8" rx="4" fill="${INK}"/><path d="M100 76 V60" stroke="${INK}" stroke-width="4"/><circle cx="100" cy="56" r="7" fill="#E63946" stroke="${INK}" stroke-width="3"/>`;
+  if (lv === 10) front += `<ellipse cx="100" cy="106" rx="50" ry="9" fill="#1D3557" stroke="${INK}" stroke-width="3.5"/><path d="M64 104 C62 72 138 72 136 104 Z" fill="#fff" stroke="${INK}" stroke-width="3.5"/><rect x="64" y="92" width="72" height="11" fill="#1D3557"/><circle cx="100" cy="84" r="6" fill="#FFC21A" stroke="${INK}" stroke-width="2.5"/>`;
+  if (lv >= 12) front += `<path d="M64 104 L64 72 L80 88 L100 62 L120 88 L136 72 L136 104 Z" fill="#FFC21A" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/><circle cx="100" cy="92" r="6" fill="#E63946" stroke="${INK}" stroke-width="2.5"/><circle cx="78" cy="96" r="4" fill="#2F9BFF" stroke="${INK}" stroke-width="2"/><circle cx="122" cy="96" r="4" fill="#22B861" stroke="${INK}" stroke-width="2"/>`;
+  if (lv >= 15) front += `<ellipse cx="100" cy="6" rx="32" ry="9" fill="none" stroke="${INK}" stroke-width="10"/><ellipse cx="100" cy="6" rx="32" ry="9" fill="none" stroke="#FFE45C" stroke-width="5"/>`;
+
+  const shadow = (54*s+12).toFixed(1);
+  return `<svg viewBox="-40 -40 280 250" class="herosvg ${mood}" role="img" aria-label="Lv.${lv} ${LV[lv-1].n}">`
+    + `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c2}"/><stop offset="1" stop-color="${c1}"/></linearGradient></defs>`
+    + `<ellipse cx="100" cy="204" rx="${shadow}" ry="9" fill="${INK}" opacity=".16"/>`
+    + `<g transform="translate(100 206) scale(${s}) translate(-100 -206)"><g class="bob">${back}${arms}${body}${face}${front}</g></g></svg>`;
+}
+
+/* ---------- 상태 ---------- */
+let NAME = "", P = null, cur = null, locked = false;
+
+function show(id){ document.querySelectorAll(".screen").forEach(s => s.hidden = s.id !== id); window.scrollTo(0,0); }
+
+function renderStart(){
+  $("#startHero").innerHTML = heroSVG(1);
+  const names = Object.keys(DB.profiles);
+  $("#pTitleList").hidden = !names.length;
+  $("#profiles").innerHTML = names.map(n => {
+    const lv = lvOf((DB.profiles[n].solved||[]).length);
+    return `<button type="button" class="btn small pchip" data-name="${esc(n)}">${heroSVG(lv)}<span>${esc(n)} <small>Lv.${lv}</small></span></button>`;
+  }).join("");
+  if (DB.last && DB.profiles[DB.last]) $("#nameInput").value = DB.last;
+  show("start");
+}
+
+function enter(name){
+  name = String(name||"").trim().slice(0,10);
+  if (!name) { $("#nameInput").focus(); $("#startSay").innerHTML = "이름을 먼저 알려 줘!<br>누가 나를 키울 거야?"; $("#startSay").classList.remove("pop"); void $("#startSay").offsetWidth; $("#startSay").classList.add("pop"); return; }
+  NAME = name;
+  P = DB.profiles[name] = fix(DB.profiles[name]);
+  DB.last = name; save();
+  $("#pName").textContent = name;
+  buildChoices();
+  show("game");
+  setHero("idle");
+  say(P.solved.length ? `${name}, 다시 왔구나! 이어서 해 보자!` : `반가워 ${name}! 같이 쑥쑥 자라 보자!`);
+  next();
+}
+
+function buildChoices(){
+  $("#choices").innerHTML = ORDER.map((c,i) =>
+    `<button class="btn choice ${c}" data-c="${c}" type="button"><span class="ck">${i+1}</span>${ICON[c]}<b>${CAT[c]}</b><small>${HINT[c]}</small></button>`).join("");
+}
+
+function setHero(mood){ $("#hero").innerHTML = heroSVG(lvOf(P.solved.length), mood); }
+function say(t){ const b = $("#say"); b.textContent = t; b.classList.remove("pop"); void b.offsetWidth; b.classList.add("pop"); }
+
+function renderHud(newPip){
+  const n = P.solved.length, lv = lvOf(n);
+  $("#lvBadge").textContent = "Lv." + lv;
+  $("#pTitle").textContent = LV[lv-1].n;
+  $("#nameTag").innerHTML = `<span>Lv.${lv}</span> ${esc(LV[lv-1].n)}`;
+  const inLv = lv >= MAX_LV ? Math.min(PER_LV, n - (MAX_LV-1)*PER_LV) : n % PER_LV;
+  $("#xpLeft").textContent = lv >= MAX_LV ? (n >= TOTAL ? "완전 정복!" : `최종 진화! 정복까지 ${TOTAL-n}문제`) : `${PER_LV - inLv}문제`;
+  let pips = ""; for (let i=0;i<PER_LV;i++) pips += `<span class="pip${i<inLv?" on":""}${newPip&&i===inLv-1?" new":""}"></span>`;
+  $("#pips").innerHTML = pips;
+  $("#stSolved").textContent = n;
+  $("#stRate").textContent = P.tries ? Math.round((P.tries - P.wrong) / P.tries * 100) + "%" : "-";
+  $("#stBest").textContent = P.best;
+  $("#qLeft").textContent = `남은 문제 ${TOTAL - n}`;
+  $("#combo").textContent = P.combo >= 2 ? `🔥 ${P.combo}연속 정답!` : "";
+  $("#catbars").innerHTML = ORDER.map(c => {
+    const [ok, all] = P.cat[c], pct = all ? Math.round(ok/all*100) : 0;
+    return `<div class="catbar"><span class="nm">${CAT[c]}</span><span class="tr"><span class="fl" style="display:block;width:${pct}%;background:${CAT_COLOR[c]}"></span></span><span class="num">${all ? pct+"%" : "-"}</span></div>`;
+  }).join("");
+  $("#sndBtn").textContent = DB.sound ? "소리 켬" : "소리 끔";
+}
+
+function next(){
+  locked = false;
+  renderHud(false);
+  $("#fb").hidden = true;
+  if (!P.queue.length) { showClear(); return; }
+  cur = QMAP[P.queue[0]];
+  $("#qEmoji").textContent = cur.e;
+  $("#qText").textContent = cur.t;
+  document.querySelectorAll(".choice").forEach(b => { b.disabled = false; b.className = "btn choice " + b.dataset.c; const m = b.querySelector(".mark"); if (m) m.remove(); });
+  setHero("idle");
+  if (Math.random() < .35) say(pick(SAY_IDLE));
+}
+
+function answer(c){
+  if (locked || !cur) return;
+  locked = true;
+  const q = cur, ok = c === q.c, before = lvOf(P.solved.length);
+  P.tries++; P.cat[q.c][1]++;
+  P.queue.shift();
+  if (ok) {
+    P.solved.push(q.id); P.cat[q.c][0]++; P.combo++; P.best = Math.max(P.best, P.combo);
+  } else {
+    P.wrong++; P.combo = 0;
+    const at = Math.min(P.queue.length, 4 + Math.floor(Math.random()*4));
+    P.queue.splice(at, 0, q.id);
+  }
+  save();
+
+  document.querySelectorAll(".choice").forEach(b => {
+    b.disabled = true;
+    const isRight = b.dataset.c === q.c, isPick = b.dataset.c === c;
+    if (isRight) { b.classList.add("right"); b.insertAdjacentHTML("beforeend", `<span class="mark" style="background:var(--good)">O</span>`); }
+    else if (isPick) { b.classList.add("wrongpick"); b.insertAdjacentHTML("beforeend", `<span class="mark" style="background:var(--bad)">X</span>`); }
+    else b.classList.add("dim");
+  });
+  const fb = $("#fb");
+  fb.className = "feedback " + (ok ? "ok" : "no");
+  $("#fbHead").textContent = ok ? `정답! ${CAT[q.c]}예요` : `아쉬워요! 정답은 ${CAT[q.c]}예요`;
+  $("#fbText").textContent = q.x;
+  fb.hidden = false;
+
+  renderHud(ok);
+  if (ok) {
+    SND.ok(); setHero("happy");
+    if (P.combo > 0 && P.combo % 5 === 0) { SND.combo(); say(`${P.combo}연속 정답! 불이 활활 붙었다! 🔥`); $("#combo").classList.remove("hot"); void $("#combo").offsetWidth; $("#combo").classList.add("hot"); }
+    else say(pick(SAY_OK));
+  } else {
+    SND.bad(); setHero("sad"); say(pick(SAY_NO));
+  }
+  const after = lvOf(P.solved.length);
+  if (after > before) setTimeout(() => showLevelUp(before, after), 700);
+  setTimeout(() => { if (!$("#fb").hidden && $("#ovl").hidden) $("#nextBtn").focus({preventScroll:true}); }, 50);
+}
+
+/* ---------- 오버레이 ---------- */
+function openOvl(html){ const o = $("#ovl"); o.innerHTML = html; o.hidden = false; const b = o.querySelector(".btn"); if (b) setTimeout(() => b.focus({preventScroll:true}), 60); }
+function closeOvl(){ $("#ovl").hidden = true; $("#ovl").innerHTML = ""; if (!$("#fb").hidden) $("#nextBtn").focus({preventScroll:true}); }
+
+function confetti(){
+  if (reduced) return;
+  const box = $("#confetti"), cols = ["#FF6A3D","#2F9BFF","#FFB800","#FF5FA2","#22B861","#B69CFF"];
+  let h = ""; for (let i=0;i<70;i++) h += `<i style="left:${Math.random()*100}%;background:${pick(cols)};animation-duration:${(1.8+Math.random()*1.8).toFixed(2)}s;animation-delay:${(Math.random()*.6).toFixed(2)}s;transform:rotate(${Math.floor(Math.random()*360)}deg)"></i>`;
+  box.innerHTML = h; setTimeout(() => { box.innerHTML = ""; }, 4200);
+}
+
+function showLevelUp(a, b){
+  SND.up(); confetti();
+  openOvl(`<div class="modal box" role="dialog" aria-label="레벨 업">
+    <span class="kicker">열돌이가 진화했어요!</span>
+    <h2>LEVEL UP!</h2>
+    <div class="evo"><div class="heroBox old">${heroSVG(a)}</div><span class="arrow">▶</span><div class="heroBox new">${heroSVG(b,"happy")}</div></div>
+    <h3>Lv.${b} ${esc(LV[b-1].n)}</h3>
+    <p>${esc(LV[b-1].d)}</p>
+    <button class="btn go" type="button" data-act="close">우와! 계속하기</button>
+  </div>`);
+  setHero("happy");
+  say(b >= MAX_LV ? "최종 진화 완료! 나 이제 우주 최강이야!" : `짜잔! 나 ${LV[b-1].n}(으)로 진화했어!`);
+}
+
+function showDex(){
+  const lv = lvOf(P.solved.length);
+  openOvl(`<div class="modal dexmodal box" role="dialog" aria-label="캐릭터 도감">
+    <span class="kicker">열돌이 진화 도감</span>
+    <h3>${esc(NAME)}의 열돌이는 지금 Lv.${lv}!</h3>
+    <div class="dexgrid">${LV.map((L,i) => { const n = i+1, open = n <= lv;
+      return `<div class="dexcard${open?"":" lock"}${n===lv?" cur":""}"><div class="heroBox">${heroSVG(n)}</div><b>Lv.${n} ${open ? esc(L.n) : "???"}</b><small>${n===1 ? "시작" : `${(n-1)*PER_LV}문제 맞히면`}</small></div>`; }).join("")}</div>
+    <button class="btn go" type="button" data-act="close">닫기</button>
+  </div>`);
+}
+
+function showMenu(){
+  openOvl(`<div class="modal box" role="dialog" aria-label="메뉴">
+    <span class="kicker">메뉴</span>
+    <h3>${esc(NAME)}의 기록</h3>
+    <p>맞힌 문제 ${P.solved.length}개 · 푼 횟수 ${P.tries}번 · 최고 ${P.best}연속</p>
+    <p style="color:var(--muted);font-size:15px">기록은 이 기기의 이 브라우저에 저장돼요.</p>
+    <div class="row">
+      <button class="btn go" type="button" data-act="close">계속 풀기</button>
+      <button class="btn" type="button" data-act="home">처음 화면으로</button>
+      <button class="btn danger" type="button" data-act="reset">기록 지우고 새로 시작</button>
+    </div>
+  </div>`);
+}
+
+function showClear(){
+  SND.up(); confetti();
+  const rate = P.tries ? Math.round((P.tries - P.wrong) / P.tries * 100) : 0;
+  openOvl(`<div class="modal box" role="dialog" aria-label="모두 정복">
+    <span class="kicker">150문제 완전 정복!</span>
+    <h2>축하해요!</h2>
+    <div class="heroBox" style="max-width:260px">${heroSVG(MAX_LV,"happy")}</div>
+    <h3>${esc(NAME)} 님은 열의 이동 박사!</h3>
+    <p>정답률 ${rate}% · 최고 ${P.best}연속 정답</p>
+    <div class="row">
+      <button class="btn go" type="button" data-act="home">처음 화면으로</button>
+      <button class="btn danger" type="button" data-act="reset">기록 지우고 다시 도전</button>
+    </div>
+  </div>`);
+}
+
+/* ---------- 이벤트 ---------- */
+$("#startForm").addEventListener("submit", e => { e.preventDefault(); SND.click(); enter($("#nameInput").value); });
+$("#profiles").addEventListener("click", e => { const b = e.target.closest(".pchip"); if (b) { SND.click(); enter(b.dataset.name); } });
+$("#choices").addEventListener("click", e => { const b = e.target.closest(".choice"); if (b && !b.disabled) answer(b.dataset.c); });
+$("#nextBtn").addEventListener("click", () => { SND.click(); next(); });
+$("#dexBtn").addEventListener("click", () => { SND.click(); showDex(); });
+$("#menuBtn").addEventListener("click", () => { SND.click(); showMenu(); });
+$("#sndBtn").addEventListener("click", () => { DB.sound = !DB.sound; save(); renderHud(false); SND.click(); });
+$("#ovl").addEventListener("click", e => {
+  const b = e.target.closest("[data-act]");
+  if (!b) { if (e.target.id === "ovl" && P && P.queue.length) closeOvl(); return; }
+  const act = b.dataset.act;
+  SND.click();
+  if (act === "close") closeOvl();
+  else if (act === "home") { closeOvl(); renderStart(); }
+  else if (act === "reset") {
+    if (b.dataset.sure) { DB.profiles[NAME] = fresh(); save(); closeOvl(); enter(NAME); }
+    else { b.dataset.sure = "1"; b.textContent = "정말? 한 번 더 누르면 지워져요"; }
+  }
+});
+document.addEventListener("keydown", e => {
+  if ($("#game").hidden) return;
+  if (!$("#ovl").hidden) { if (e.key === "Escape" && P.queue.length) closeOvl(); return; }
+  if (e.target.tagName === "INPUT") return;
+  const k = {"1":"cd","2":"cv","3":"rd"}[e.key];
+  if (k && !locked) { e.preventDefault(); answer(k); }
+  else if ((e.key === "Enter" || e.key === " ") && locked && !$("#fb").hidden && document.activeElement !== $("#nextBtn")) { e.preventDefault(); SND.click(); next(); }
+});
+
+renderStart();
+})();
+</script>
